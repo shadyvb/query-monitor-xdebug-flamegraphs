@@ -1,0 +1,11 @@
+{
+    "core": "WordPress/WordPress#6.0",
+    "phpVersion": "8.1",
+    "plugins": [
+        ".",
+        "johnbillion/query-monitor#3.17.0"
+    ],
+    "mappings": {
+        ".htaccess": ".wp-env/.htaccess"
+    }
+}

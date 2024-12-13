@@ -1,0 +1,2 @@
+php_value xdebug.trace_format "3"
+php_value xdebug.trace_output_name trace.%u.%R
