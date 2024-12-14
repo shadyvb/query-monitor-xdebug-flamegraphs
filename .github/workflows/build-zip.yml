@@ -1,0 +1,24 @@
+name: Build Release ZIP
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*"
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build release zip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build plugin zip
+        uses: 10up/action-wordpress-plugin-build-zip@stable
+        env:
+          SLUG: query-monitor-xdebug-flamegraphs
+        with:
+          retention-days: 5

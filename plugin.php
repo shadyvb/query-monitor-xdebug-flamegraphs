@@ -39,6 +39,16 @@ function init(): void {
 		return;
 	}
 
+	// Check if Query Monitor is active and classes exist
+	if ( ! class_exists( '\QM_Collector' ) || ! class_exists( '\QM_Output_Html' ) ) {
+		add_action( 'admin_notices', function() {
+			echo '<div class="error"><p>' .
+				 esc_html__( 'Query Monitor xdebug Flamegraphs requires Query Monitor plugin to be installed and activated.', 'query-monitor-xdebug-flamegraphs' ) .
+				 '</p></div>';
+		});
+		return;
+	}
+
 	// Register the outputter.
 	add_filter( 'qm/outputter/html', __NAMESPACE__ . '\register_qm_output', 120, 2 );
 	// Register an AJAX action to get the flamegraph iframe content.
@@ -49,10 +59,13 @@ function init(): void {
  * Register the output
  *
  * @param array $output
- * @param \QM_Collectors $collectors
  * @return array
  */
 function register_qm_output( array $output ) {
+	if ( ! class_exists( '\QM_Collector' ) || ! class_exists( '\QM_Output_Html' ) ) {
+		return $output;
+	}
+
 	$output['flamegraph'] = new class ( new class extends \QM_Collector {
 		public $id = 'flamegraph';
 	} ) extends \QM_Output_Html {
@@ -62,7 +75,7 @@ function register_qm_output( array $output ) {
 		}
 
 		public function name() {
-			return 'Flamegraph 🔥';
+			return esc_html__( 'Flamegraph 🔥', 'query-monitor-xdebug-flamegraphs' );
 		}
 
 		public function output() {
@@ -80,7 +93,13 @@ function register_qm_output( array $output ) {
 function get_xdebug_trace_files() {
 	$trace_files = [];
 	$trace_files_dir = ini_get( 'xdebug.output_dir' );
-	$number_of_files = apply_filters( 'qm/flamegraphs/number_of_files', 50 );
+
+	// Validate directory
+	if ( ! $trace_files_dir || ! is_dir( $trace_files_dir ) || ! is_readable( $trace_files_dir ) ) {
+		return [];
+	}
+
+	$number_of_files = absint( apply_filters( 'qm/flamegraphs/number_of_files', 50 ) );
 	$trace_file_format = ini_get( 'xdebug.trace_output_name' );
 	$trace_file_format = preg_replace( '/%[a-z]/i', '*', $trace_file_format ) . '*';
 
@@ -114,9 +133,28 @@ function get_xdebug_trace_files() {
  * @return void
  */
 function get_flamegraph_iframe_content(): void {
+	// Verify nonce
+	if ( ! check_ajax_referer( 'qm_flamegraph_nonce', 'nonce', false ) ) {
+		wp_die( -1, 403 );
+	}
+
+	// Verify user capabilities
+	if ( ! current_user_can( 'view_query_monitor' ) ) {
+		wp_die( -1, 403 );
+	}
+
 	$xdebug_output_dir = ini_get( 'xdebug.output_dir' );
-	$file = filter_input( INPUT_GET, 'file' );
+
+	// Validate output directory exists and is readable
+	if ( ! $xdebug_output_dir || ! is_dir( $xdebug_output_dir ) || ! is_readable( $xdebug_output_dir ) ) {
+		wp_die( esc_html__( 'Invalid xdebug output directory', 'query-monitor-xdebug-flamegraphs' ), 403 );
+	}
+
+	$file = sanitize_file_name( filter_input( INPUT_GET, 'file' ) );
+	// Prevent directory traversal
+	$file = basename( $file );
 	$full_file_path = $xdebug_output_dir . '/' . $file;
+
 	$files = get_xdebug_trace_files();
 
 	// Verify the file is in the list of trace files.
@@ -147,8 +185,12 @@ function generate_flamegraph( string $file ): string {
 		return '';
 	}
 
+	// Escape shell arguments
+	$escaped_library = escapeshellarg( $flamegraph_library );
+	$escaped_file = escapeshellarg( $file );
+
 	ob_start();
-	passthru( $flamegraph_library . ' ' . $file );
+	passthru( $escaped_library . ' ' . $escaped_file );
 	$data = ob_get_clean();
 
 	return $data;

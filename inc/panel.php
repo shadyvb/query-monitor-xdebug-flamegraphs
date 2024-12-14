@@ -1,16 +1,31 @@
 <?php declare( strict_types=1 );
 namespace QM\XdebugFlamegraphs;
 
-$url = admin_url( 'admin-ajax.php?action=qm_get_flamegraph_iframe_content' );
+$url = wp_nonce_url(
+    admin_url( 'admin-ajax.php?action=qm_get_flamegraph_iframe_content' ),
+    'qm_flamegraph_nonce',
+    'nonce'
+);
 
-if ( function_exists( 'xdebug_get_tracefile_name' ) && \xdebug_get_tracefile_name() ) {
-	$filename = str_replace( ini_get( 'xdebug.output_dir' ) . '/', '', \xdebug_get_tracefile_name() );
-	$url = add_query_arg( 'file', $filename, $url );
+// Check if xdebug functions exist and are available
+$has_xdebug = extension_loaded('xdebug');
+$filename = '';
+
+if ( $has_xdebug && function_exists( 'xdebug_get_tracefile_name' ) ) {
+    try {
+        $tracefile = @xdebug_get_tracefile_name();
+        if ($tracefile) {
+            $filename = str_replace( ini_get( 'xdebug.output_dir' ) . '/', '', $tracefile );
+            $url = add_query_arg( 'file', $filename, $url );
+        }
+    } catch (\Throwable $e) {
+        // Silently fail if xdebug functions throw errors
+    }
 }
 
 $notices = [];
 
-if ( ! extension_loaded( 'xdebug' ) ) {
+if ( ! $has_xdebug ) {
 	$notices[] = __( '<strong>Error:</strong> Xdebug is not available, traces are not generated, so you can only view traces that are already generated.', 'query-monitor-xdebug-flamegraphs' );
 }
 

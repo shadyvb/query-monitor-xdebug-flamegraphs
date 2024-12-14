@@ -23,13 +23,14 @@
 
 <div id="qm-flamegraph-select">
     <label for="file">
-        Select a trace to visualize:
+        <?php esc_html_e( 'Select a trace to visualize:', 'query-monitor-xdebug-flamegraphs' ); ?>
     </label>
 	<select name="file">
 		<?php foreach ( $files as $_file ) : ?>
 			<option value="<?php echo esc_attr( $_file['filename'] ); ?>" <?php selected( $file, $_file['filename'] ); ?>>
 				<?php printf(
-                    '%s (%s ago)',
+                    /* translators: 1: filename, 2: time ago */
+                    esc_html__( '%1$s (%2$s ago)', 'query-monitor-xdebug-flamegraphs' ),
                     esc_html( $_file['filename'] ),
                     esc_html( human_time_diff( $_file['timestamp'], time() ) )
                 ); ?>
